@@ -1,0 +1,220 @@
+/* Global styles */
+:root {
+  --primary-bg: #f9f9f9;
+  --task-bg: #fff;
+  --completed-color: #999;
+  --toast-bg: #222;
+  --toast-color: #fff;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  background-color: var(--primary-bg);
+}
+
+input {
+  padding: 10px;
+  width: 300px;
+  margin-right: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+button {
+  padding: 10px 15px;
+  margin-left: 5px;
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+button:hover {
+  background-color: #e0e0e0;
+}
+
+/* Containers */
+.main-layout {
+  display: flex;
+  flex-wrap: wrap; /* Responsive wrap on smaller screens */
+  gap: 24px;
+  max-width: 1000px;
+  margin: auto;
+}
+
+.tasks-container {
+  flex: 2;
+  padding: 20px;
+}
+
+.chat-container {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Task list */
+#taskList {
+  padding: 0;
+  margin-top: 16px;
+  list-style: none;
+}
+
+#taskList li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #ddd;
+  background-color: #fff;
+  border-radius: 5px;
+  transition: background 0.2s ease;
+}
+
+#taskList li.completed span {
+  text-decoration: line-through;
+  color: #999;
+  opacity: 0.8;
+}
+
+/* Checkbox style */
+#taskList li span::before {
+  content: '⬜';
+  display: inline-block;
+  width: 1.2em;
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+#taskList li.completed span::before {
+  content: '✅';
+}
+
+/* Empty state styling */
+#taskList li.empty-state {
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  padding: 20px;
+}
+
+/* Task buttons */
+.task-buttons button {
+  margin-left: 8px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.task-buttons button:hover {
+  background: #f0f0f0;
+}
+
+/* Filter buttons */
+#filterButtons {
+  margin-bottom: 12px;
+}
+
+#filterButtons button {
+  margin-right: 6px;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+#filterButtons button:hover {
+  background: #f5f5f5;
+}
+
+/* Chat window */
+#chatWindow {
+  flex-grow: 1;
+  min-height: 200px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+#chatWindow div {
+  margin-bottom: 5px;
+}
+
+#chatWindow .user {
+  font-weight: bold;
+  color: #333;
+}
+
+#chatWindow .bot {
+  color: #0077cc;
+}
+
+/* Toast styling */
+#toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100%);
+  background: #222;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  font-size: 0.95rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  z-index: 1000;
+}
+
+#toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#toast button {
+  background: transparent;
+  border: none;
+  color: #4f8cff;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+#toast button:hover,
+#toast button:focus {
+  background: rgba(79,140,255,0.1);
+  outline: none;
+}
+
+/* Hover effect on tasks */
+#taskList li:hover {
+  background-color: #f9f9f9;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+  input {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  button {
+    width: 100%;
+    margin-left: 0;
+    margin-bottom: 8px;
+  }
+}

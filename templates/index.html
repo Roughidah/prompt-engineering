@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToDo List</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+
+<body>
+    <div class="main-layout">
+        <!-- Left: Tasks -->
+        <div class="tasks-container">
+            <h1>📝 My Tasks</h1>
+            <div id="filterButtons">
+                <button onclick="setFilter('all')">All</button>
+                <button onclick="setFilter('completed')">Completed</button>
+                <button onclick="setFilter('pending')">Pending</button>
+            </div>
+
+            <label for="taskInput">New Task:</label>
+            <input type="text" id="taskInput" placeholder="Enter task description" aria-label="Task description">
+            <button id="addTaskBtn">Add Task</button>
+            <ul id="taskList"></ul>
+        </div>
+
+        <!-- Right: Chatbot -->
+        <div class="chat-container">
+            <h2>Chatbot Assistant</h2>
+            <div id="chatWindow"></div>
+            <input type="text" id="chatInput" placeholder="Ask me to manage your tasks">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+
+
+<!-- ...keep HTML structure mostly the same, remove inline onclick in filter buttons... -->
+<script>
+const taskList = document.getElementById('taskList');
+const taskInput = document.getElementById('taskInput');
+const addTaskBtn = document.getElementById('addTaskBtn');
+const chatInput = document.getElementById('chatInput');
+const chatWindow = document.getElementById('chatWindow');
+let currentFilter = 'all';
+let lastDeleted = null;
+let toastTimer = null;
+
+// Toast
+const toast = document.createElement('div');
+toast.id = 'toast';
+toast.setAttribute('role', 'status');
+toast.setAttribute('aria-live', 'polite');
+toast.innerHTML = `<span id="toastMsg"></span><button id="undoBtn">Undo</button>`;
+document.body.appendChild(toast);
+
+const toastMsg = document.getElementById('toastMsg');
+const undoBtn = document.getElementById('undoBtn');
+undoBtn.onclick = undoDelete;
+
+// API helper
+async function apiCall(url, options = {}) {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+        try { throw await res.json(); } 
+        catch { throw { error: 'Unknown error' }; }
+    }
+    return res.json();
+}
+
+// Render task
+function renderTask(task) {
+    const li = document.createElement('li');
+    li.dataset.id = task.id;
+    if (task.completed) li.classList.add('completed');
+
+    const span = document.createElement('span');
+    span.textContent = task.description;
+
+    const btnContainer = document.createElement('div');
+    btnContainer.className = 'task-buttons';
+
+    const completeBtn = document.createElement('button');
+    completeBtn.textContent = 'Complete';
+    completeBtn.disabled = task.completed;
+    completeBtn.onclick = async () => {
+        li.classList.add('completed');
+        completeBtn.disabled = true;
+        try {
+            await apiCall(`/tasks/${task.id}/complete`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ completed: true })
+            });
+        } catch (err) {
+            alert(err.error || 'Failed to complete task.');
+            li.classList.remove('completed');
+            completeBtn.disabled = false;
+        }
+    };
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.onclick = async () => {
+        li.remove();
+        try {
+            const data = await apiCall(`/tasks/${task.id}`, { method: 'DELETE' });
+            lastDeleted = data.deleted;
+            showToast(`Task deleted: "${lastDeleted.description}"`);
+        } catch (err) {
+            alert(err.error || 'Failed to delete task.');
+            loadTasks();
+        }
+    };
+
+    btnContainer.appendChild(completeBtn);
+    btnContainer.appendChild(deleteBtn);
+    li.appendChild(span);
+    li.appendChild(btnContainer);
+    return li;
+}
+
+// Load tasks efficiently
+async function loadTasks() {
+    try {
+        const data = await apiCall('/tasks');
+        const filtered = data.filter(task => {
+            if (currentFilter === 'completed') return task.completed;
+            if (currentFilter === 'pending') return !task.completed;
+            return true;
+        });
+
+        const existing = {};
+        taskList.querySelectorAll('li').forEach(li => existing[li.dataset.id] = li);
+
+        taskList.innerHTML = '';
+        if (filtered.length === 0) {
+            const emptyMsg = document.createElement('li');
+            emptyMsg.textContent = '🌱 No tasks here. Add one!';
+            emptyMsg.classList.add('empty-state');
+            taskList.appendChild(emptyMsg);
+            return;
+        }
+
+        filtered.forEach(task => taskList.appendChild(renderTask(task)));
+    } catch (err) {
+        alert(err.error || 'Failed to load tasks.');
+    }
+}
+
+// Add task
+async function addTask() {
+    const description = taskInput.value.trim();
+    if (!description) return alert('Please enter a task description.');
+
+    const tempTask = { id: `temp-${Date.now()}`, description, completed: false };
+    taskList.appendChild(renderTask(tempTask));
+    taskInput.value = '';
+
+    try {
+        const newTask = await apiCall('/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description })
+        });
+        tempTask.id = newTask.id; // Replace temp ID
+        loadTasks();
+    } catch (err) {
+        alert(err.error || 'Failed to add task.');
+        loadTasks();
+    }
+}
+
+// Filter
+function setFilter(filter) {
+    currentFilter = filter;
+    loadTasks();
+}
+
+// Toast + Undo
+function showToast(message) {
+    toastMsg.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+        lastDeleted = null;
+    }, 6000);
+}
+
+async function undoDelete() {
+    if (!lastDeleted) return;
+    toast.classList.remove('show');
+
+    const { description, completed } = lastDeleted;
+    lastDeleted = null;
+
+    try {
+        const restored = await apiCall('/tasks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ description })
+        });
+
+        if (completed) {
+            await apiCall(`/tasks/${restored.id}/complete`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ completed: true })
+            });
+        }
+        loadTasks();
+    } catch (err) {
+        alert(err.error || 'Failed to restore task.');
+    }
+}
+
+// Chatbot
+async function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+
+    const userDiv = document.createElement('div');
+    userDiv.className = 'user';
+    userDiv.textContent = "You: " + message;
+    chatWindow.appendChild(userDiv);
+
+    chatInput.value = '';
+
+    try {
+        const data = await apiCall('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+
+        const botDiv = document.createElement('div');
+        botDiv.className = 'bot';
+        botDiv.textContent = "Bot: " + data.response;
+        chatWindow.appendChild(botDiv);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+
+        loadTasks();
+    } catch (err) {
+        alert(err.error || 'Chatbot failed.');
+    }
+}
+
+// Event listeners
+addTaskBtn.onclick = addTask;
+taskInput.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+
+// Filter buttons
+document.querySelectorAll('#filterButtons button').forEach(btn => {
+    btn.onclick = () => setFilter(btn.textContent.toLowerCase());
+});
+
+// Initial load
+loadTasks();
+</script>
+
+
+    </div>
+
+</body>
+
+</html>
